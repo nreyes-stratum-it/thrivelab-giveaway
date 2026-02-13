@@ -1,0 +1,23 @@
+{
+  "name": "thrivelab-giveaway",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm dev:frontend\" \"pnpm dev:backend\"",
+    "dev:frontend": "pnpm --filter frontend-nextjs dev",
+    "dev:backend": "pnpm --filter backend start:dev",
+    "build": "pnpm build:backend && pnpm build:frontend",
+    "build:frontend": "pnpm --filter frontend-nextjs build",
+    "build:backend": "pnpm --filter backend build",
+    "install:all": "pnpm install",
+    "clean": "rm -rf node_modules apps/*/node_modules apps/*/dist apps/*/out"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
