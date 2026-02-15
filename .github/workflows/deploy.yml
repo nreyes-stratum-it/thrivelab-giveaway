@@ -47,7 +47,13 @@ jobs:
         working-directory: apps/frontend-nextjs
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.API_URL }}
-        run: pnpm run build
+        run: |
+          echo "Building with API_URL: $NEXT_PUBLIC_API_URL"
+          pnpm run build
+          
+          # Verificar que se generaron los archivos
+          echo "✅ Build completed. Contents of 'out' directory:"
+          ls -la out/
 
       - name: Upload frontend build
         uses: actions/upload-artifact@v4
@@ -97,44 +103,63 @@ jobs:
         working-directory: apps/backend-nestjs
         run: pnpm run build
 
-      - name: Copy Lambda handler to dist
+      - name: Verify Lambda handler exists
         working-directory: apps/backend-nestjs
         run: |
           if [ ! -f "dist/src/lambda.js" ]; then
-            echo "Error: lambda.js not found in dist/"
+            echo "❌ Error: lambda.js not found in dist/"
             exit 1
           fi
           echo "✅ Lambda handler built successfully"
 
-      - name: Install production dependencies
-        working-directory: apps/backend-nestjs
-        run: |
-          mkdir -p lambda-package
-          
-          cp -r dist/* lambda-package/
-          
-          cp -r generated lambda-package/
-          
-          pnpm install --prod --frozen-lockfile
-          cp -r node_modules lambda-package/
-          
-          cp package.json lambda-package/
-
       - name: Create Lambda deployment package
         working-directory: apps/backend-nestjs
         run: |
+          # Crear directorio para el paquete Lambda
+          mkdir -p lambda-package
+          
+          # Copiar código compilado
+          cp -r dist/* lambda-package/
+          
+          # Copiar Prisma client generado
+          if [ -d "generated" ]; then
+            cp -r generated lambda-package/
+          fi
+          
+          # Copiar package.json
+          cp package.json lambda-package/
+          
+          # Instalar dependencias de producción DENTRO del directorio lambda-package
           cd lambda-package
           
+          # Usar npm en lugar de pnpm para mejor compatibilidad con Lambda
+          npm install --production --omit=dev --legacy-peer-deps
+          
+          # Verificar que las dependencias críticas existen
+          echo "Verificando dependencias..."
+          if [ ! -d "node_modules/@nestjs/core" ]; then
+            echo "❌ Error: @nestjs/core not found"
+            exit 1
+          fi
+          
+          echo "✅ Dependencies installed. Size of node_modules:"
+          du -sh node_modules
+          
+          # Crear el archivo zip
           zip -r ../lambda.zip . \
             -x "*.git*" \
             -x "*.test.*" \
             -x "*.spec.*" \
             -x "*.md" \
-            -x ".DS_Store"
+            -x ".DS_Store" \
+            -x "node_modules/@types/*" \
+            -x "node_modules/typescript/*"
           
           cd ..
+          
+          echo "✅ Lambda package created:"
           ls -lh lambda.zip
-          echo "✅ Lambda package created: $(du -h lambda.zip | cut -f1)"
+          du -h lambda.zip
 
       - name: Upload backend build
         uses: actions/upload-artifact@v4
@@ -173,7 +198,9 @@ jobs:
 
       - name: Prepare Lambda code for CDK
         run: |
-          cp backend-build/lambda.zip apps/backend-nestjs/lambda.zip    
+          mkdir -p apps/backend-nestjs
+          cp backend-build/lambda.zip apps/backend-nestjs/lambda.zip
+          echo "✅ Lambda package ready for CDK"
 
       - name: Install CDK dependencies
         working-directory: infrastructure
@@ -231,26 +258,43 @@ jobs:
           name: frontend-build
           path: ./frontend-build
 
+      - name: Verify frontend build
+        run: |
+          echo "Contents of frontend-build:"
+          ls -la frontend-build/
+          
+          if [ ! -f "frontend-build/index.html" ]; then
+            echo "❌ Error: index.html not found!"
+            exit 1
+          fi
+          
+          echo "✅ Frontend build verified"
+
       - name: Deploy to S3
         run: |
+          # Subir archivos estáticos con cache largo
           aws s3 sync ./frontend-build s3://${{ needs.deploy-infrastructure.outputs.bucket }} \
             --delete \
             --cache-control "public, max-age=31536000, immutable" \
             --exclude "*.html" \
             --exclude "*.json"
           
-          # HTML files sin cache para siempre tener la última versión
+          # Subir HTML y JSON sin cache
           aws s3 sync ./frontend-build s3://${{ needs.deploy-infrastructure.outputs.bucket }} \
             --exclude "*" \
             --include "*.html" \
             --include "*.json" \
             --cache-control "public, max-age=0, must-revalidate"
+          
+          echo "✅ Files uploaded to S3"
 
       - name: Invalidate CloudFront Cache
         run: |
           aws cloudfront create-invalidation \
             --distribution-id ${{ needs.deploy-infrastructure.outputs.distribution_id }} \
             --paths "/*"
+          
+          echo "✅ CloudFront cache invalidated"
 
   deploy-backend:
     needs: deploy-infrastructure
@@ -326,7 +370,17 @@ jobs:
   health-check:
     needs: [ deploy-frontend, deploy-backend ]
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Wait for deployment
         run: sleep 30
 
@@ -336,7 +390,10 @@ jobs:
             --stack-name ThriveLabGiveaway \
             --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontURL`].OutputValue' \
             --output text)
-          curl -f $CLOUDFRONT_URL || exit 1
+          
+          echo "Testing frontend at: $CLOUDFRONT_URL"
+          curl -f -I $CLOUDFRONT_URL || exit 1
+          echo "✅ Frontend is accessible"
 
       - name: Check Backend API
         run: |
@@ -344,4 +401,7 @@ jobs:
             --stack-name ThriveLabGiveaway \
             --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayURL`].OutputValue' \
             --output text)
-          curl -f ${API_URL}health || exit 1
+          
+          echo "Testing backend at: ${API_URL}api/health"
+          curl -f ${API_URL}api/health || exit 1
+          echo "✅ Backend API is accessible"
