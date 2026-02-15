@@ -27,7 +27,12 @@
     "db:migrate": "docker-compose run --rm backend npx prisma migrate dev",
     "db:migrate:deploy": "docker-compose run --rm backend npx prisma migrate deploy",
     "db:studio": "docker-compose run --rm -p 5555:5555 backend npx prisma studio",
-    "db:seed": "docker-compose run --rm backend npx prisma db seed"
+    "db:seed": "docker-compose run --rm backend npx prisma db seed",
+    "deploy": "cd infrastructure/cdk && cdk deploy",
+    "deploy:backend": "cd apps/backend-nestjs && ./build-lambda.sh && aws lambda update-function-code --function-name ThriveLabGiveawayBackend --zip-file fileb://lambda.zip",
+    "migrate:prod": "cd apps/backend-nestjs && pnpm exec prisma migrate deploy",
+    "logs:backend": "aws logs tail /aws/lambda/ThriveLabGiveawayBackend --follow",
+    "invalidate:cdn": "aws cloudfront create-invalidation --distribution-id $(aws cloudformation describe-stacks --stack-name ThriveLabGiveaway --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text) --paths '/*'"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

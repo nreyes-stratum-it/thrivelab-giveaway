@@ -1,0 +1,337 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  NODE_VERSION: '20'
+
+jobs:
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        working-directory: apps/frontend-nextjs
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.API_URL }}
+        run: pnpm run build
+
+      - name: Upload frontend build
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: apps/frontend-nextjs/out
+          retention-days: 1
+
+
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        working-directory: apps/backend-nestjs
+        run: pnpm exec prisma generate
+
+      - name: Build backend
+        working-directory: apps/backend-nestjs
+        run: pnpm run build
+
+      - name: Copy Lambda handler to dist
+        working-directory: apps/backend-nestjs
+        run: |
+          if [ ! -f "dist/src/lambda.js" ]; then
+            echo "Error: lambda.js not found in dist/"
+            exit 1
+          fi
+          echo "✅ Lambda handler built successfully"
+
+      - name: Install production dependencies
+        working-directory: apps/backend-nestjs
+        run: |
+          mkdir -p lambda-package
+          
+          cp -r dist/* lambda-package/
+          
+          cp -r generated lambda-package/
+          
+          pnpm install --prod --frozen-lockfile
+          cp -r node_modules lambda-package/
+          
+          cp package.json lambda-package/
+
+      - name: Create Lambda deployment package
+        working-directory: apps/backend-nestjs
+        run: |
+          cd lambda-package
+          
+          zip -r ../lambda.zip . \
+            -x "*.git*" \
+            -x "*.test.*" \
+            -x "*.spec.*" \
+            -x "*.md" \
+            -x ".DS_Store"
+          
+          cd ..
+          ls -lh lambda.zip
+          echo "✅ Lambda package created: $(du -h lambda.zip | cut -f1)"
+
+      - name: Upload backend build
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build
+          path: apps/backend-nestjs/lambda.zip
+          retention-days: 1
+
+  deploy-infrastructure:
+    needs: [build-frontend, build-backend]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install CDK dependencies
+        working-directory: infrastructure/cdk
+        run: npm ci
+
+      - name: CDK Synth
+        working-directory: infrastructure/cdk
+        run: npm run synth
+
+      - name: CDK Deploy
+        working-directory: infrastructure/cdk
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npm run cdk deploy -- \
+            --require-approval never \
+            --parameters DatabaseUrl=$DATABASE_URL
+
+      - name: Get Stack Outputs
+        id: stack-outputs
+        run: |
+          BUCKET=$(aws cloudformation describe-stacks \
+            --stack-name ThriveLabGiveaway \
+            --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' \
+            --output text)
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name ThriveLabGiveaway \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
+            --output text)
+          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
+          echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+
+    outputs:
+      bucket: ${{ steps.stack-outputs.outputs.bucket }}
+      distribution_id: ${{ steps.stack-outputs.outputs.distribution_id }}
+
+
+  deploy-frontend:
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download frontend build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: ./frontend-build
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync ./frontend-build s3://${{ needs.deploy-infrastructure.outputs.bucket }} \
+            --delete \
+            --cache-control "public, max-age=31536000, immutable" \
+            --exclude "*.html" \
+            --exclude "*.json"
+          
+          # HTML files sin cache para siempre tener la última versión
+          aws s3 sync ./frontend-build s3://${{ needs.deploy-infrastructure.outputs.bucket }} \
+            --exclude "*" \
+            --include "*.html" \
+            --include "*.json" \
+            --cache-control "public, max-age=0, must-revalidate"
+
+      - name: Invalidate CloudFront Cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ needs.deploy-infrastructure.outputs.distribution_id }} \
+            --paths "/*"
+
+  deploy-backend:
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Prisma Migrations
+        working-directory: apps/backend-nestjs
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "🗄️ Running database migrations..."
+          pnpm exec prisma migrate deploy
+          echo "✅ Migrations completed successfully"
+
+      - name: Download backend build
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-build
+          path: ./backend-build
+
+      - name: Update Lambda function
+        run: |
+          echo "📦 Updating Lambda function code..."
+          aws lambda update-function-code \
+            --function-name ThriveLabGiveawayBackend \
+            --zip-file fileb://./backend-build/lambda.zip
+          
+          echo "✅ Lambda function updated"
+
+      - name: Wait for Lambda update
+        run: |
+          echo "⏳ Waiting for Lambda function to be ready..."
+          aws lambda wait function-updated \
+            --function-name ThriveLabGiveawayBackend
+          
+          echo "✅ Lambda function is ready"
+
+      - name: Publish Lambda version
+        run: |
+          VERSION=$(aws lambda publish-version \
+            --function-name ThriveLabGiveawayBackend \
+            --query 'Version' \
+            --output text)
+          
+          echo "📌 Published Lambda version: $VERSION"
+
+  health-check:
+    needs: [deploy-frontend, deploy-backend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Check Frontend
+        run: |
+          CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
+            --stack-name ThriveLabGiveaway \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontURL`].OutputValue' \
+            --output text)
+          curl -f $CLOUDFRONT_URL || exit 1
+
+      - name: Check Backend API
+        run: |
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name ThriveLabGiveaway \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayURL`].OutputValue' \
+            --output text)
+          curl -f ${API_URL}health || exit 1
