@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
         unoptimized: true,
     },
     outputFileTracingRoot: path.join(__dirname, '../../'),
-
+    trailingSlash: true,
 };
 
 export default nextConfig;
