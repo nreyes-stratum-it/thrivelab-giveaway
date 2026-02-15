@@ -55,7 +55,7 @@ export class ThriveLabStack extends cdk.Stack {
                 cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
                 compress: true,
             },
-            defaultRootObject: 'index.html',
+            defaultRootObject: 'giveaway/index.html',
             errorResponses: [
                 {
                     httpStatus: 404,
