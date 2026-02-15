@@ -80,7 +80,7 @@ export class ThriveLabStack extends cdk.Stack {
             functionName: 'ThriveLabGiveawayBackend',
             runtime: lambda.Runtime.NODEJS_20_X,
             handler: 'src/lambda.handler',
-            code: lambda.Code.fromAsset(path.join(__dirname, '../../apps/backend-nestjs/dist')),
+            code: lambda.Code.fromAsset(path.join(__dirname, '../../apps/backend-nestjs/lambda.zip')),
             memorySize: 512,
             timeout: cdk.Duration.seconds(30),
             environment: {

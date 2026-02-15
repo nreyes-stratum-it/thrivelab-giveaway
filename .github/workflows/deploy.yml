@@ -165,6 +165,16 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Download backend build
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-build
+          path: ./backend-build
+
+      - name: Prepare Lambda code for CDK
+        run: |
+          cp backend-build/lambda.zip apps/backend-nestjs/lambda.zip    
+
       - name: Install CDK dependencies
         working-directory: infrastructure
         run: npm ci
