@@ -51,52 +51,8 @@ export class ThriveLabStack extends cdk.Stack {
                 allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
                 cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
                 compress: true,
-                functionAssociations: [{
-                    function: new cloudfront.Function(this, 'UrlRewriteFunction', {
-                        code: cloudfront.FunctionCode.fromInline(`
-                    function handler(event) {
-                        var request = event.request;
-                        var uri = request.uri;
-                        
-                        // If root path, serve giveaway
-                        if (uri === '/' || uri === '') {
-                            request.uri = '/giveaway/index.html';
-                            return request;
-                        }
-                        
-                        // If accessing /giveaway without trailing slash, add index.html
-                        if (uri === '/giveaway') {
-                            request.uri = '/giveaway/index.html';
-                            return request;
-                        }
-                        
-                        // If path ends with /, add index.html
-                        if (uri.endsWith('/')) {
-                            request.uri += 'index.html';
-                        }
-                        
-                        return request;
-                    }
-                `),
-                    }),
-                    eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
-                }],
             },
-            defaultRootObject: '',
-            errorResponses: [
-                {
-                    httpStatus: 404,
-                    responseHttpStatus: 404,
-                    responsePagePath: '/404.html',
-                    ttl: cdk.Duration.seconds(10),
-                },
-                {
-                    httpStatus: 403,
-                    responseHttpStatus: 403,
-                    responsePagePath: '/404.html',
-                    ttl: cdk.Duration.seconds(10),
-                },
-            ],
+            defaultRootObject: 'giveaway/index.html',
             priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
             geoRestriction: cloudfront.GeoRestriction.allowlist('US'),
             httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
