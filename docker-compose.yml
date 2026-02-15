@@ -1,0 +1,72 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: thrivelab-postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: thrivelab
+      POSTGRES_PASSWORD: thrivelab
+      POSTGRES_DB: thrivelab
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U thrivelab" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - thrivelab-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend-nestjs/Dockerfile
+      target: production
+    container_name: thrivelab-backend
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://thrivelab:thrivelab@postgres:5432/thrivelab?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - thrivelab-network
+
+    command: sh -c "npx prisma migrate deploy && node dist/src/main.js"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend-nextjs/Dockerfile
+      target: production
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001/api
+    container_name: thrivelab-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - thrivelab-network
+
+
+volumes:
+  postgres_data:
+
+networks:
+  thrivelab-network:
+    driver: bridge

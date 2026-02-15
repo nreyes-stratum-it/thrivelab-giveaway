@@ -1,0 +1,46 @@
+node_modules
+npm-debug.log
+pnpm-debug.log
+yarn-error.log
+
+dist
+build
+out
+.next
+
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+.DS_Store
+Thumbs.db
+
+coverage
+.nyc_output
+*.lcov
+
+logs
+*.log
+
+tmp
+temp
+.cache
+
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+.github
+.gitlab-ci.yml
+
+# Prisma
+# NO ignorar prisma/schema.prisma ni migrations
+# apps/backend-nestjs/generated

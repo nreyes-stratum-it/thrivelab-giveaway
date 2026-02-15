@@ -6,6 +6,7 @@ import {zodResolver} from '@hookform/resolvers/zod'
 import {CompleteFormData} from "@/features/giveaway/types"
 import {useFormStore} from "@/features/giveaway/store"
 import {completeFormSchema} from "@/features/giveaway/schemas"
+import {giveawayApiService} from "@/features/giveaway/services";
 
 interface StepConfig {
     title: string
@@ -83,12 +84,9 @@ export function useGiveawayForm() {
         setIsSubmitting(true)
 
         try {
-            const response = await fetch('/api/giveaway', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data),
-            })
-            if (!response.ok) throw new Error('Submission failed')
+            const response = await giveawayApiService.submitEntry(data)
+            console.log(response)
+
             resetForm()
             alert('Form submitted successfully!')
         } catch (error) {
