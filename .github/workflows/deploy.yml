@@ -166,15 +166,15 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Install CDK dependencies
-        working-directory: infrastructure/cdk
+        working-directory: infrastructure
         run: npm ci
 
       - name: CDK Synth
-        working-directory: infrastructure/cdk
+        working-directory: infrastructure
         run: npm run synth
 
       - name: CDK Deploy
-        working-directory: infrastructure/cdk
+        working-directory: infrastructure
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
