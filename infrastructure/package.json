@@ -5,6 +5,8 @@
     "infrastructure": "bin/infrastructure.js"
   },
   "scripts": {
+    "synth": "cdk synth",
+    "deploy": "cdk deploy",
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",

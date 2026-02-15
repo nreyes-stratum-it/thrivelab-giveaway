@@ -2,7 +2,7 @@ name: Deploy to AWS
 
 on:
   push:
-    branches: [main, master]
+    branches: [ main, master ]
   workflow_dispatch:
 
 env:
@@ -144,7 +144,7 @@ jobs:
           retention-days: 1
 
   deploy-infrastructure:
-    needs: [build-frontend, build-backend]
+    needs: [ build-frontend, build-backend ]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -178,7 +178,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          npm run cdk deploy -- \
+          npm run deploy -- \
             --require-approval never \
             --parameters DatabaseUrl=$DATABASE_URL
 
@@ -314,7 +314,7 @@ jobs:
           echo "📌 Published Lambda version: $VERSION"
 
   health-check:
-    needs: [deploy-frontend, deploy-backend]
+    needs: [ deploy-frontend, deploy-backend ]
     runs-on: ubuntu-latest
     steps:
       - name: Wait for deployment
