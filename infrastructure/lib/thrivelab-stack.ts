@@ -15,8 +15,6 @@ export class ThriveLabStack extends cdk.Stack {
 
         const frontendBucket = new s3.Bucket(this, 'FrontendBucket', {
             bucketName: `thrivelab-frontend-${this.account}`,
-            websiteIndexDocument: 'index.html',
-            websiteErrorDocument: '404.html',
             publicReadAccess: false,
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -30,7 +28,6 @@ export class ThriveLabStack extends cdk.Stack {
                 },
             ],
         });
-
 
         const cachePolicy = new cloudfront.CachePolicy(this, 'NextJsCachePolicy', {
             cachePolicyName: 'ThriveLabNextJsCache',
@@ -60,14 +57,14 @@ export class ThriveLabStack extends cdk.Stack {
                 {
                     httpStatus: 404,
                     responseHttpStatus: 200,
-                    responsePagePath: '/index.html',
-                    ttl: cdk.Duration.minutes(5),
+                    responsePagePath: '/giveaway/index.html',
+                    ttl: cdk.Duration.seconds(10),
                 },
                 {
                     httpStatus: 403,
                     responseHttpStatus: 200,
-                    responsePagePath: '/index.html',
-                    ttl: cdk.Duration.minutes(5),
+                    responsePagePath: '/giveaway/index.html',
+                    ttl: cdk.Duration.seconds(10),
                 },
             ],
             priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
@@ -96,7 +93,6 @@ export class ThriveLabStack extends cdk.Stack {
             }),
             tracing: lambda.Tracing.ACTIVE,
         });
-
 
         const httpApi = new apigatewayv2.HttpApi(this, 'BackendHttpApi', {
             apiName: 'ThriveLabGiveaway API',
@@ -143,12 +139,11 @@ export class ThriveLabStack extends cdk.Stack {
             integration: lambdaIntegration,
         });
 
-        const databaseUrlParam = new cdk.CfnParameter(this, 'DatabaseUrl', {
+        new cdk.CfnParameter(this, 'DatabaseUrl', {
             type: 'String',
             description: 'Database connection string (PostgreSQL or MongoDB)',
             noEcho: true,
         });
-
 
         new cdk.CfnOutput(this, 'FrontendBucketName', {
             value: frontendBucket.bucketName,
@@ -178,15 +173,6 @@ export class ThriveLabStack extends cdk.Stack {
             value: backendLambda.functionArn,
             description: 'Backend Lambda function ARN',
             exportName: 'ThriveLabLambdaArn',
-        });
-
-        new cdk.CfnOutput(this, 'NextSteps', {
-            value: `
-Frontend needs to be built with: NEXT_PUBLIC_API_URL=${httpApi.url}
-Then upload to S3 bucket: ${frontendBucket.bucketName}
-And invalidate CloudFront: ${distribution.distributionId}
-            `.trim(),
-            description: 'Next steps for deployment',
         });
     }
 }

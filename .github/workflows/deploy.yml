@@ -263,8 +263,8 @@ jobs:
           echo "Contents of frontend-build:"
           ls -la frontend-build/
           
-          if [ ! -f "frontend-build/index.html" ]; then
-            echo "❌ Error: index.html not found!"
+          if [ ! -f "frontend-build/giveaway/index.html" ]; then
+            echo "❌ Error: giveaway/index.html not found!"
             exit 1
           fi
           
