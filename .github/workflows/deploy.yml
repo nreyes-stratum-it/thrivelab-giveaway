@@ -115,37 +115,41 @@ jobs:
       - name: Create Lambda deployment package
         working-directory: apps/backend-nestjs
         run: |
-          # Crear directorio para el paquete Lambda
           mkdir -p lambda-package
-          
-          # Copiar código compilado
           cp -r dist/* lambda-package/
-          
-          # Copiar Prisma client generado
           if [ -d "generated" ]; then
             cp -r generated lambda-package/
           fi
-          
-          # Copiar package.json
           cp package.json lambda-package/
-          
-          # Instalar dependencias de producción DENTRO del directorio lambda-package
           cd lambda-package
-          
-          # Usar npm en lugar de pnpm para mejor compatibilidad con Lambda
+
           npm install --production --omit=dev --legacy-peer-deps
+
+  
+          echo "Cleaning unnecessary files..."
+
+          find node_modules -name "*.md" -delete
+          find node_modules -name "*.ts" -delete
+          find node_modules -name "*.map" -delete
+          find node_modules -name "LICENSE*" -delete
+          find node_modules -name "CHANGELOG*" -delete
+
+          rm -rf node_modules/@types
+          rm -rf node_modules/typescript
+
+          rm -rf node_modules/@swc
+          rm -rf node_modules/esbuild
+          rm -rf node_modules/prettier
+
           
-          # Verificar que las dependencias críticas existen
-          echo "Verificando dependencias..."
-          if [ ! -d "node_modules/@nestjs/core" ]; then
-            echo " Error: @nestjs/core not found"
-            exit 1
-          fi
-          
-          echo " Dependencies installed. Size of node_modules:"
+          find node_modules -type d -name "__tests__" -exec rm -rf {} + 2>/dev/null || true
+          find node_modules -type d -name "test" -exec rm -rf {} + 2>/dev/null || true
+
+          echo "📊 Size after cleanup:"
           du -sh node_modules
-          
-          # Crear el archivo zip
+          # ============================================
+
+        
           zip -r ../lambda.zip . \
             -x "*.git*" \
             -x "*.test.*" \
@@ -154,11 +158,10 @@ jobs:
             -x ".DS_Store" \
             -x "node_modules/@types/*" \
             -x "node_modules/typescript/*"
-          
+
           cd ..
-          
-          echo " Lambda package created:"
-          ls -lh lambda.zip
+
+          echo " Lambda package size:"
           du -h lambda.zip
 
       - name: Upload backend build

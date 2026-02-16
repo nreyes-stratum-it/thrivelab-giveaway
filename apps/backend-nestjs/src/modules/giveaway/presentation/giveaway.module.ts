@@ -7,6 +7,7 @@ import {GIVEAWAY_SERVICE} from "../domain/services/giveaway.service.interface";
 import {GiveawayService} from "../application/services/giveaway.service";
 import {EVENT_PUBLISHER} from "../../../shared/events/event-publisher.interface";
 import {SqsEventPublisher} from "../../../shared/events/sqs-event-publisher";
+import {MockEventPublisher} from "../../../shared/events/mock-event-publisher";
 
 @Module({
     controllers: [GiveawayController],
@@ -22,8 +23,10 @@ import {SqsEventPublisher} from "../../../shared/events/sqs-event-publisher";
         },
         {
             provide: EVENT_PUBLISHER,
-            useClass: SqsEventPublisher,
-        }
+            useClass: process.env.NODE_ENV === 'production'
+                ? SqsEventPublisher
+                : MockEventPublisher,
+        },
     ],
     exports: [GIVEAWAY_SERVICE],
 })
