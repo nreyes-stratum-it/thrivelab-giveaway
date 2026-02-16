@@ -217,11 +217,11 @@ jobs:
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
         run: |
-          npm run deploy -- \
+          npm run deploy -- ThriveLabGiveaway \
             --require-approval never \
-            --parameters DatabaseUrl=$DATABASE_URL \
-            --parameters AdminEmail=$ADMIN_EMAIL \     
-            --parameters FromEmail=$FROM_EMAIL         
+            --parameters DatabaseUrl="${DATABASE_URL}" \
+            --parameters AdminEmail="${ADMIN_EMAIL}" \
+            --parameters FromEmail="${FROM_EMAIL}"
 
       - name: Get Stack Outputs
         id: stack-outputs
