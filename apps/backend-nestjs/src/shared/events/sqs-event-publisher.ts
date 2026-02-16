@@ -1,4 +1,5 @@
 import {Injectable, Logger} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
 import {SQSClient, SendMessageCommand} from '@aws-sdk/client-sqs';
 import {IEventPublisher, DomainEvent} from './event-publisher.interface';
 
@@ -6,21 +7,40 @@ import {IEventPublisher, DomainEvent} from './event-publisher.interface';
 export class SqsEventPublisher implements IEventPublisher {
     private readonly logger = new Logger(SqsEventPublisher.name);
     private readonly sqsClient: SQSClient;
-    private readonly queueUrl: string;
+    private readonly queueUrl: string | undefined;
 
-    constructor() {
-        this.sqsClient = new SQSClient({
-            region: process.env.AWS_REGION || 'us-east-1',
+    constructor(private readonly configService: ConfigService) {
+        this.queueUrl = this.configService.get<string>('NOTIFICATION_QUEUE_URL');
+        const region = this.configService.get<string>('AWS_REGION', 'us-east-1');
+
+        console.log('🔧 SqsEventPublisher initialization:', {
+            queueUrl: this.queueUrl,
+            region: region,
+            hasQueueUrl: !!this.queueUrl,
         });
-        this.queueUrl = process.env.NOTIFICATION_QUEUE_URL!;
 
-        if (!this.queueUrl) {
-            throw new Error('NOTIFICATION_QUEUE_URL environment variable is required');
+        if (this.queueUrl) {
+            this.sqsClient = new SQSClient({region});
+            this.logger.log(`SQS Publisher initialized with queue: ${this.queueUrl}`);
+        } else {
+            this.logger.warn(' NOTIFICATION_QUEUE_URL not configured - events will not be published');
         }
     }
 
     async publish(event: DomainEvent): Promise<void> {
+        if (!this.queueUrl) {
+            this.logger.warn(` Skipping event publish (no queue configured): ${event.eventType}`);
+            return;
+        }
+
         try {
+            this.logger.log(`Publishing event to SQS: ${event.eventType}`);
+            console.log('Event details:', {
+                eventType: event.eventType,
+                queueUrl: this.queueUrl,
+                eventData: JSON.stringify(event).substring(0, 200) + '...',
+            });
+
             const command = new SendMessageCommand({
                 QueueUrl: this.queueUrl,
                 MessageBody: JSON.stringify(event),
@@ -32,12 +52,23 @@ export class SqsEventPublisher implements IEventPublisher {
                 },
             });
 
-            await this.sqsClient.send(command);
+            const result = await this.sqsClient.send(command);
 
-            this.logger.log(`Event published: ${event.eventType}`);
+
+            this.logger.log(`Event published successfully: ${event.eventType} (MessageId: ${result.MessageId})`);
+            console.log('SQS send result:', {
+                MessageId: result.MessageId,
+                MD5OfMessageBody: result.MD5OfMessageBody,
+            });
         } catch (error) {
-            // NO lanzar error - queremos que el registro del usuario continúe
-            this.logger.error(`Failed to publish event: ${error.message}`, error.stack);
+            this.logger.error(` Failed to publish event: ${error instanceof Error ? error.message : String(error)}`);
+            console.error('SQS publish error details:', {
+                errorName: error instanceof Error ? error.name : 'Unknown',
+                errorMessage: error instanceof Error ? error.message : String(error),
+                errorStack: error instanceof Error ? error.stack : undefined,
+                queueUrl: this.queueUrl,
+                eventType: event.eventType,
+            });
         }
     }
 }

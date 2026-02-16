@@ -14,6 +14,13 @@ async function bootstrapForLambda() {
     if (!cachedServer) {
         const expressApp = express();
 
+        console.log(' Environment variables:', {
+            NODE_ENV: process.env.NODE_ENV,
+            NOTIFICATION_QUEUE_URL: process.env.NOTIFICATION_QUEUE_URL,
+            AWS_REGION: process.env.AWS_REGION,
+            DATABASE_URL: process.env.DATABASE_URL ? '***configured***' : 'NOT SET',
+        });
+
         const app = await NestFactory.create(
             AppModule,
             new ExpressAdapter(expressApp),

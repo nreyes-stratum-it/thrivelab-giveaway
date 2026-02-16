@@ -15,6 +15,7 @@ export class GiveawayService implements IGiveawayService {
         private readonly repository: IGiveawayRepository, @Inject(EVENT_PUBLISHER)
         private readonly eventPublisher: IEventPublisher,
     ) {
+        console.log(' GiveawayService initialized with publisher:', this.eventPublisher.constructor.name);
     }
 
     async submitEntry(dto: CreateGiveawayEntryDto): Promise<GiveawayEntry> {
@@ -50,23 +51,37 @@ export class GiveawayService implements IGiveawayService {
             interestLevel: dto.interestLevel,
         })
 
-        this.eventPublisher.publish(
-            new GiveawayEntryCreatedEvent(
-                entry.id,
-                entry.firstName,
-                entry.lastName,
-                entry.email,
-                entry.phoneNumber,
-                entry.instagramHandle,
-                entry.painArea,
-                entry.painAreaOther,
-                entry.reasons,
-                entry.interestLevel,
-            )
-        ).catch(error => {
-            // Log error but don't throw - notifications are non-critical
-            console.error('Failed to publish GiveawayEntryCreatedEvent:', error);
+        console.log('Attempting to publish event for entry:', {
+            entryId: entry.id,
+            email: entry.email,
+            publisherType: this.eventPublisher.constructor.name,
         });
+
+        try {
+            await this.eventPublisher.publish(
+                new GiveawayEntryCreatedEvent(
+                    entry.id,
+                    entry.firstName,
+                    entry.lastName,
+                    entry.email,
+                    entry.phoneNumber,
+                    entry.instagramHandle,
+                    entry.painArea,
+                    entry.painAreaOther,
+                    entry.reasons,
+                    entry.interestLevel,
+                )
+            );
+
+            console.log('Event published successfully for entry:', entry.id);
+        } catch (error) {
+            console.error(' Failed to publish GiveawayEntryCreatedEvent:', {
+                entryId: entry.id,
+                email: entry.email,
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+            });
+        }
 
         return entry
     }

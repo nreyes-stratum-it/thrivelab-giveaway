@@ -17,6 +17,24 @@ export class ThriveLabStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
 
+        const databaseUrl = new cdk.CfnParameter(this, 'DatabaseUrl', {
+            type: 'String',
+            description: 'Database connection string (PostgreSQL)',
+            noEcho: true,
+        });
+
+        const adminEmail = new cdk.CfnParameter(this, 'AdminEmail', {
+            type: 'String',
+            description: 'Admin email for notifications',
+            default: 'admin@thrivelab.com',
+        });
+
+        const fromEmail = new cdk.CfnParameter(this, 'FromEmail', {
+            type: 'String',
+            description: 'Verified SES email address',
+            default: 'noreply@thrivelab.com',
+        });
+
         const frontendBucket = new s3.Bucket(this, 'FrontendBucket', {
             bucketName: `thrivelab-frontend-${this.account}`,
             publicReadAccess: false,
@@ -32,6 +50,61 @@ export class ThriveLabStack extends cdk.Stack {
                 },
             ],
         });
+
+        const edgeRewriteLambda = new lambda.Function(this, 'EdgeRewriteFunction', {
+            functionName: 'thrivelab-cloudfront-rewrite',
+            runtime: lambda.Runtime.NODEJS_20_X,
+            handler: 'index.handler',
+            code: lambda.Code.fromInline(`
+    exports.handler = async (event) => {
+      const request = event.Records[0].cf.request;
+      let uri = request.uri;
+
+  
+
+      if (uri === '/' || uri === '') {
+        return {
+          status: '302',
+          statusDescription: 'Found',
+          headers: {
+            location: [{
+              key: 'Location',
+              value: '/giveaway/',
+            }],
+          },
+        };
+      }
+
+      if (/\\.[a-zA-Z0-9]+$/.test(uri)) {
+        return request;
+      }
+
+      
+      if (!uri.endsWith('/')) {
+        return {
+          status: '301',
+          statusDescription: 'Moved Permanently',
+          headers: {
+            location: [{
+              key: 'Location',
+              value: uri + '/',
+            }],
+          },
+        };
+      }
+
+      // Si termina en /, agregar index.html
+      request.uri = uri + 'index.html';
+
+      console.log('Rewritten URI:', request.uri);
+      return request;
+    };
+  `),
+            memorySize: 128,
+            timeout: cdk.Duration.seconds(5),
+        });
+
+        const edgeVersion = edgeRewriteLambda.currentVersion;
 
         const cachePolicy = new cloudfront.CachePolicy(this, 'NextJsCachePolicy', {
             cachePolicyName: 'ThriveLabNextJsCache',
@@ -55,12 +128,31 @@ export class ThriveLabStack extends cdk.Stack {
                 allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
                 cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
                 compress: true,
+                edgeLambdas: [{
+                    functionVersion: edgeVersion,
+                    eventType: cloudfront.LambdaEdgeEventType.ORIGIN_REQUEST,
+                }],
             },
-            defaultRootObject: 'giveaway/index.html',
+
             priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
             geoRestriction: cloudfront.GeoRestriction.allowlist('US'),
             httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
             enabled: true,
+
+            errorResponses: [
+                {
+                    httpStatus: 403,
+                    responseHttpStatus: 200,
+                    responsePagePath: '/giveaway/index.html',
+                    ttl: cdk.Duration.minutes(5),
+                },
+                {
+                    httpStatus: 404,
+                    responseHttpStatus: 200,
+                    responsePagePath: '/giveaway/index.html',
+                    ttl: cdk.Duration.minutes(5),
+                },
+            ],
         });
 
         const notificationDLQ = new sqs.Queue(this, 'NotificationDLQ', {
@@ -92,8 +184,8 @@ export class ThriveLabStack extends cdk.Stack {
                 memorySize: 256,
                 timeout: cdk.Duration.seconds(60),
                 environment: {
-                    ADMIN_EMAIL: cdk.Fn.ref('AdminEmail'),
-                    FROM_EMAIL: cdk.Fn.ref('FromEmail'),
+                    ADMIN_EMAIL: adminEmail.valueAsString,
+                    FROM_EMAIL: fromEmail.valueAsString,
                     FRONTEND_URL: `https://${distribution.distributionDomainName}`,
                 },
                 bundling: {
@@ -101,7 +193,7 @@ export class ThriveLabStack extends cdk.Stack {
                     sourceMap: false,
                     externalModules: ['@aws-sdk/*'],
                 },
-                logGroup: new logs.LogGroup(this, 'EmailNotificationLogGroup', {
+                logGroup: new logs.LogGroup(this, 'EmailNotificationLambdaLogGroup', {
                     logGroupName: '/aws/lambda/ThriveLabEmailNotification',
                     retention: logs.RetentionDays.ONE_WEEK,
                     removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -117,10 +209,10 @@ export class ThriveLabStack extends cdk.Stack {
             })
         );
 
+
         emailNotificationLambda.addEventSource(
             new SqsEventSource(notificationQueue, {
-                batchSize: 10,
-                maxBatchingWindow: cdk.Duration.seconds(5),
+                batchSize: 1,
                 reportBatchItemFailures: true,
             })
         );
@@ -129,15 +221,18 @@ export class ThriveLabStack extends cdk.Stack {
             functionName: 'ThriveLabGiveawayBackend',
             runtime: lambda.Runtime.NODEJS_20_X,
             handler: 'src/lambda.handler',
-            code: lambda.Code.fromAsset(path.join(__dirname, '../../apps/backend-nestjs/lambda.zip')),
+            code: lambda.Code.fromAsset(
+                path.join(__dirname, '../../apps/backend-nestjs/lambda.zip')
+            ),
             memorySize: 512,
             timeout: cdk.Duration.seconds(30),
             environment: {
                 NODE_ENV: 'production',
-                DATABASE_URL: cdk.Fn.ref('DatabaseUrl'),
+                DATABASE_URL: databaseUrl.valueAsString,
                 FRONTEND_URL: `https://${distribution.distributionDomainName}`,
                 PORT: '3001',
                 NOTIFICATION_QUEUE_URL: notificationQueue.queueUrl,
+                AWS_REGION: this.region,
             },
             logGroup: new logs.LogGroup(this, 'BackendLambdaLogGroup', {
                 logGroupName: '/aws/lambda/ThriveLabGiveawayBackend',
@@ -164,11 +259,7 @@ export class ThriveLabStack extends cdk.Stack {
                     apigatewayv2.CorsHttpMethod.DELETE,
                     apigatewayv2.CorsHttpMethod.OPTIONS,
                 ],
-                allowHeaders: [
-                    'Content-Type',
-                    'Authorization',
-                    'X-Api-Key',
-                ],
+                allowHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'],
                 allowCredentials: true,
                 maxAge: cdk.Duration.days(1),
             },
@@ -179,7 +270,7 @@ export class ThriveLabStack extends cdk.Stack {
             backendLambda,
             {
                 payloadFormatVersion: apigatewayv2.PayloadFormatVersion.VERSION_2_0,
-            },
+            }
         );
 
         httpApi.addRoutes({
@@ -192,24 +283,6 @@ export class ThriveLabStack extends cdk.Stack {
             path: '/api',
             methods: [apigatewayv2.HttpMethod.ANY],
             integration: lambdaIntegration,
-        });
-
-        new cdk.CfnParameter(this, 'DatabaseUrl', {
-            type: 'String',
-            description: 'Database connection string (PostgreSQL or MongoDB)',
-            noEcho: true,
-        });
-
-        new cdk.CfnParameter(this, 'AdminEmail', {
-            type: 'String',
-            description: 'Admin email for notifications',
-            default: 'admin@thrivelab.com',
-        });
-
-        new cdk.CfnParameter(this, 'FromEmail', {
-            type: 'String',
-            description: 'Verified SES email address',
-            default: 'noreply@thrivelab.com',
         });
 
         new cdk.CfnOutput(this, 'FrontendBucketName', {
@@ -244,7 +317,26 @@ export class ThriveLabStack extends cdk.Stack {
 
         new cdk.CfnOutput(this, 'NotificationQueueUrl', {
             value: notificationQueue.queueUrl,
+            description: 'SQS Queue URL for notifications',
             exportName: 'ThriveLabNotificationQueueUrl',
+        });
+
+        new cdk.CfnOutput(this, 'NotificationQueueArn', {
+            value: notificationQueue.queueArn,
+            description: 'SQS Queue ARN',
+            exportName: 'ThriveLabNotificationQueueArn',
+        });
+
+        new cdk.CfnOutput(this, 'DLQUrl', {
+            value: notificationDLQ.queueUrl,
+            description: 'Dead Letter Queue URL',
+            exportName: 'ThriveLabDLQUrl',
+        });
+
+        new cdk.CfnOutput(this, 'EdgeLambdaArn', {
+            value: edgeRewriteLambda.functionArn,
+            description: 'Lambda@Edge function ARN for routing',
+            exportName: 'ThriveLabEdgeLambdaArn',
         });
     }
 }
