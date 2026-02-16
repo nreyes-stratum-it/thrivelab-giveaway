@@ -25,11 +25,7 @@ pnpm docker:up
 ## Architecture
 
 ```
-Frontend (Next.js) → Backend (NestJS) → PostgreSQL
-                         ↓
-                     SQS Queue (AWS)
-                         ↓
-                   Email Lambda → SES
+[Architecture Diagram](assets/architecture.png)
 ```
 
 **Local Development**: Emails are mocked (logged to console, not sent)  
