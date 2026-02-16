@@ -219,7 +219,7 @@ jobs:
         run: |
           npm run deploy -- \
             --require-approval never \
-            --parameters DatabaseUrl=$DATABASE_URL
+            --parameters DatabaseUrl=$DATABASE_URL \
             --parameters AdminEmail=$ADMIN_EMAIL \     
             --parameters FromEmail=$FROM_EMAIL         
 
