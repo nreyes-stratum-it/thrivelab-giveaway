@@ -11,6 +11,7 @@ import * as path from 'node:path';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import {SqsEventSource} from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 
 export class ThriveLabStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -80,66 +81,33 @@ export class ThriveLabStack extends cdk.Stack {
             encryption: sqs.QueueEncryption.SQS_MANAGED,
         });
 
-        const emailNotificationLambda = new lambda.Function(this, 'EmailNotificationLambda', {
-            functionName: 'ThriveLabEmailNotification',
-            runtime: lambda.Runtime.NODEJS_20_X,
-            handler: 'index.handler',
-            code: lambda.Code.fromAsset(
-                path.join(__dirname, 'lambda/email-notification'),
-                {
-                    exclude: ['dist', 'node_modules', '*.log', 'cdk.out'],
-
-                    bundling: {
-                        image: lambda.Runtime.NODEJS_20_X.bundlingImage,
-                        user: 'root',
-                        command: [
-                            'bash', '-c',
-                            [
-                                'cp -r . /asset-output',
-                                'cd /asset-output',
-
-                                'export npm_config_cache=/tmp/.npm',
-                                'mkdir -p /tmp/.npm',
-
-                                'npm install typescript @types/node @types/aws-lambda @aws-sdk/client-ses',
-
-                                'npx tsc',
-
-                                'echo "=== Compiled files ==="',
-                                'ls -la dist/',
-                                'test -f dist/index.js || exit 1',
-
-                                'mv dist/* .',
-                                'rm -rf dist',
-
-                                'find . -name "*.ts" -type f -delete',
-                                'rm -f tsconfig.json',
-
-                                'rm -rf node_modules',
-
-                                'npm install --omit=dev @aws-sdk/client-ses',
-
-                                'echo "=== Final package (only .js) ==="',
-                                'ls -la',
-                                'find . -name "*.js" | head -10',
-                            ].join(' && '),
-                        ],
-                    },
-                }
-            ),
-            memorySize: 256,
-            timeout: cdk.Duration.seconds(60),
-            environment: {
-                ADMIN_EMAIL: cdk.Fn.ref('AdminEmail'),
-                FROM_EMAIL: cdk.Fn.ref('FromEmail'),
-                FRONTEND_URL: `https://${distribution.distributionDomainName}`,
-            },
-            logGroup: new logs.LogGroup(this, 'EmailNotificationLogGroup', {
-                logGroupName: '/aws/lambda/ThriveLabEmailNotification',
-                retention: logs.RetentionDays.ONE_WEEK,
-                removalPolicy: cdk.RemovalPolicy.DESTROY,
-            }),
-        });
+        const emailNotificationLambda = new lambdaNodejs.NodejsFunction(
+            this,
+            'EmailNotificationLambda',
+            {
+                functionName: 'ThriveLabEmailNotification',
+                entry: path.join(__dirname, 'lambda/email-notification/index.ts'),
+                handler: 'handler',
+                runtime: lambda.Runtime.NODEJS_20_X,
+                memorySize: 256,
+                timeout: cdk.Duration.seconds(60),
+                environment: {
+                    ADMIN_EMAIL: cdk.Fn.ref('AdminEmail'),
+                    FROM_EMAIL: cdk.Fn.ref('FromEmail'),
+                    FRONTEND_URL: `https://${distribution.distributionDomainName}`,
+                },
+                bundling: {
+                    minify: true,
+                    sourceMap: false,
+                    externalModules: ['@aws-sdk/*'],
+                },
+                logGroup: new logs.LogGroup(this, 'EmailNotificationLogGroup', {
+                    logGroupName: '/aws/lambda/ThriveLabEmailNotification',
+                    retention: logs.RetentionDays.ONE_WEEK,
+                    removalPolicy: cdk.RemovalPolicy.DESTROY,
+                }),
+            }
+        );
 
         emailNotificationLambda.addToRolePolicy(
             new iam.PolicyStatement({
