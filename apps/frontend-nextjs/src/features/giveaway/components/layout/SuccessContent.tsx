@@ -3,6 +3,7 @@
 import {useEffect, useState, useRef} from 'react'
 import {useRouter, useSearchParams} from 'next/navigation'
 import {validateSuccessToken} from "@/features/giveaway/utils"
+import Link from "next/link"
 
 export function SuccessContent() {
     const router = useRouter()
@@ -93,6 +94,13 @@ export function SuccessContent() {
                         We'll be in touch with the results soon.
                     </p>
                 </div>
+
+                <Link
+                    href="/giveaway"
+                    className="block w-full bg-gradient-to-r from-olive-500 to-olive-600 hover:from-olive-600 hover:to-olive-700 text-white text-center font-semibold py-4 px-6 rounded-2xl transition-all duration-300 shadow-md hover:shadow-lg hover:-translate-y-0.5 mt-8"
+                >
+                    ← Back to Giveaway
+                </Link>
             </div>
         </div>
     )
