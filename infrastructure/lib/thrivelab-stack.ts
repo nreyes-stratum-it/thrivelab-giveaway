@@ -8,6 +8,9 @@ import {HttpLambdaIntegration} from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import {Construct} from 'constructs';
 import * as path from 'node:path';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import {SqsEventSource} from 'aws-cdk-lib/aws-lambda-event-sources';
 
 export class ThriveLabStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -59,6 +62,59 @@ export class ThriveLabStack extends cdk.Stack {
             enabled: true,
         });
 
+        const notificationDLQ = new sqs.Queue(this, 'NotificationDLQ', {
+            queueName: 'thrivelab-notification-dlq',
+            retentionPeriod: cdk.Duration.days(14),
+            encryption: sqs.QueueEncryption.SQS_MANAGED,
+        });
+
+        const notificationQueue = new sqs.Queue(this, 'NotificationQueue', {
+            queueName: 'thrivelab-notification-queue',
+            visibilityTimeout: cdk.Duration.seconds(180),
+            receiveMessageWaitTime: cdk.Duration.seconds(20),
+            retentionPeriod: cdk.Duration.days(4),
+            deadLetterQueue: {
+                queue: notificationDLQ,
+                maxReceiveCount: 3,
+            },
+            encryption: sqs.QueueEncryption.SQS_MANAGED,
+        });
+
+        const emailNotificationLambda = new lambda.Function(this, 'EmailNotificationLambda', {
+            functionName: 'ThriveLabEmailNotification',
+            runtime: lambda.Runtime.NODEJS_20_X,
+            handler: 'index.handler',
+            code: lambda.Code.fromAsset(path.join(__dirname, 'lambda/email-notification')),
+            memorySize: 256,
+            timeout: cdk.Duration.seconds(60),
+            environment: {
+                ADMIN_EMAIL: cdk.Fn.ref('AdminEmail'),
+                FROM_EMAIL: cdk.Fn.ref('FromEmail'),
+                FRONTEND_URL: `https://${distribution.distributionDomainName}`,
+            },
+            logGroup: new logs.LogGroup(this, 'EmailNotificationLogGroup', {
+                logGroupName: '/aws/lambda/ThriveLabEmailNotification',
+                retention: logs.RetentionDays.ONE_WEEK,
+                removalPolicy: cdk.RemovalPolicy.DESTROY,
+            }),
+        });
+
+        emailNotificationLambda.addToRolePolicy(
+            new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+                resources: ['*'],
+            })
+        );
+
+        emailNotificationLambda.addEventSource(
+            new SqsEventSource(notificationQueue, {
+                batchSize: 10,
+                maxBatchingWindow: cdk.Duration.seconds(5),
+                reportBatchItemFailures: true,
+            })
+        );
+
         const backendLambda = new lambda.Function(this, 'BackendLambda', {
             functionName: 'ThriveLabGiveawayBackend',
             runtime: lambda.Runtime.NODEJS_20_X,
@@ -79,6 +135,8 @@ export class ThriveLabStack extends cdk.Stack {
             }),
             tracing: lambda.Tracing.ACTIVE,
         });
+
+        notificationQueue.grantSendMessages(backendLambda);
 
         const httpApi = new apigatewayv2.HttpApi(this, 'BackendHttpApi', {
             apiName: 'ThriveLabGiveaway API',
@@ -131,6 +189,18 @@ export class ThriveLabStack extends cdk.Stack {
             noEcho: true,
         });
 
+        new cdk.CfnParameter(this, 'AdminEmail', {
+            type: 'String',
+            description: 'Admin email for notifications',
+            default: 'admin@thrivelab.com',
+        });
+
+        new cdk.CfnParameter(this, 'FromEmail', {
+            type: 'String',
+            description: 'Verified SES email address',
+            default: 'noreply@thrivelab.com',
+        });
+
         new cdk.CfnOutput(this, 'FrontendBucketName', {
             value: frontendBucket.bucketName,
             description: 'S3 Bucket name for frontend',
@@ -159,6 +229,11 @@ export class ThriveLabStack extends cdk.Stack {
             value: backendLambda.functionArn,
             description: 'Backend Lambda function ARN',
             exportName: 'ThriveLabLambdaArn',
+        });
+
+        new cdk.CfnOutput(this, 'NotificationQueueUrl', {
+            value: notificationQueue.queueUrl,
+            exportName: 'ThriveLabNotificationQueueUrl',
         });
     }
 }

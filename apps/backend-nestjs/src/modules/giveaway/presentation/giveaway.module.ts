@@ -5,6 +5,8 @@ import {GIVEAWAY_REPOSITORY} from "../domain/repositories/giveaway.repository.in
 import {PrismaGiveawayRepository} from "../infrastructure/repositories/prisma-giveaway.repository";
 import {GIVEAWAY_SERVICE} from "../domain/services/giveaway.service.interface";
 import {GiveawayService} from "../application/services/giveaway.service";
+import {EVENT_PUBLISHER} from "../../../shared/events/event-publisher.interface";
+import {SqsEventPublisher} from "../../../shared/events/sqs-event-publisher";
 
 @Module({
     controllers: [GiveawayController],
@@ -18,6 +20,10 @@ import {GiveawayService} from "../application/services/giveaway.service";
             provide: GIVEAWAY_SERVICE,
             useClass: GiveawayService,
         },
+        {
+            provide: EVENT_PUBLISHER,
+            useClass: SqsEventPublisher,
+        }
     ],
     exports: [GIVEAWAY_SERVICE],
 })

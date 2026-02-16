@@ -5,12 +5,15 @@ import {GiveawayEntry} from '../../domain/entities/giveaway-entry.entity'
 import {CreateGiveawayEntryDto} from '../dto/create-giveaway-entry.dto'
 import {ConflictException} from "../../../../shared/exceptions/conflict.exception";
 import {ValidationException} from "../../../../shared/exceptions/validation.exception";
+import {GiveawayEntryCreatedEvent} from "../../domain/events/giveaway-entry-created.event";
+import {EVENT_PUBLISHER, IEventPublisher} from "../../../../shared/events/event-publisher.interface";
 
 @Injectable()
 export class GiveawayService implements IGiveawayService {
     constructor(
         @Inject(GIVEAWAY_REPOSITORY)
-        private readonly repository: IGiveawayRepository
+        private readonly repository: IGiveawayRepository, @Inject(EVENT_PUBLISHER)
+        private readonly eventPublisher: IEventPublisher,
     ) {
     }
 
@@ -46,6 +49,24 @@ export class GiveawayService implements IGiveawayService {
             reasons: dto.reasons,
             interestLevel: dto.interestLevel,
         })
+
+        this.eventPublisher.publish(
+            new GiveawayEntryCreatedEvent(
+                entry.id,
+                entry.firstName,
+                entry.lastName,
+                entry.email,
+                entry.phoneNumber,
+                entry.instagramHandle,
+                entry.painArea,
+                entry.painAreaOther,
+                entry.reasons,
+                entry.interestLevel,
+            )
+        ).catch(error => {
+            // Log error but don't throw - notifications are non-critical
+            console.error('Failed to publish GiveawayEntryCreatedEvent:', error);
+        });
 
         return entry
     }
