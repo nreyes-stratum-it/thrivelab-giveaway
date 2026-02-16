@@ -83,7 +83,7 @@ export class ThriveLabStack extends cdk.Stack {
         const emailNotificationLambda = new lambda.Function(this, 'EmailNotificationLambda', {
             functionName: 'ThriveLabEmailNotification',
             runtime: lambda.Runtime.NODEJS_20_X,
-            handler: 'dist/index.handler',
+            handler: 'index.handler',
             code: lambda.Code.fromAsset(
                 path.join(__dirname, 'lambda/email-notification'),
                 {
@@ -106,16 +106,22 @@ export class ThriveLabStack extends cdk.Stack {
                                 'npx tsc',
 
                                 'echo "=== Compiled files ==="',
-                                'ls -la dist/ || echo "ERROR: dist/ not found!"',
+                                'ls -la dist/',
                                 'test -f dist/index.js || exit 1',
+
+                                'mv dist/* .',
+                                'rm -rf dist',
+
+                                'find . -name "*.ts" -type f -delete',
+                                'rm -f tsconfig.json',
 
                                 'rm -rf node_modules',
 
                                 'npm install --omit=dev @aws-sdk/client-ses',
 
-                                'echo "=== Final package contents ==="',
-                                'du -sh .',
+                                'echo "=== Final package (only .js) ==="',
                                 'ls -la',
+                                'find . -name "*.js" | head -10',
                             ].join(' && '),
                         ],
                     },
