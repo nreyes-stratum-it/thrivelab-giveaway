@@ -29,6 +29,27 @@ pnpm docker:up
 
 ---
 
+## AWS SES Email Limitation (Sandbox Mode)
+
+**Current Status**: The AWS account is in SES sandbox mode for this technical assessment.
+
+### What This Means
+
+| Email Type              | Status         | Details                                                |
+|-------------------------|----------------|--------------------------------------------------------|
+| **Admin Notifications** | ✅ Working      | Admin email is verified and receives all notifications |
+| **User Confirmations**  | ⚠️ Logged Only | Blocked by sandbox - would work in production          |
+
+### How It Works Now
+
+When a user submits the giveaway form:
+
+1. Entry saved to PostgreSQL database
+2. Event published to SQS queue
+3. Lambda function triggered and processes event
+4. Admin receives notification email
+5. User email is logged (CloudWatch shows it would be sent)
+
 **Local Development**: Emails are mocked (logged to console, not sent)  
 **Production**: Real emails sent via AWS SES
 
@@ -155,8 +176,6 @@ thrivelab-giveaway/
 ```
 
 ---
-
-## Email Notifications
 
 ### Local Development
 
