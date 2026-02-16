@@ -84,7 +84,36 @@ export class ThriveLabStack extends cdk.Stack {
             functionName: 'ThriveLabEmailNotification',
             runtime: lambda.Runtime.NODEJS_20_X,
             handler: 'dist/index.handler',
-            code: lambda.Code.fromAsset(path.join(__dirname, 'lambda/email-notification')),
+            code: lambda.Code.fromAsset(
+                path.join(__dirname, 'lambda/email-notification'),
+                {
+                    bundling: {
+                        image: lambda.Runtime.NODEJS_20_X.bundlingImage,
+                        command: [
+                            'bash', '-c',
+                            [
+                                // Copiar todo al output
+                                'cp -r . /asset-output',
+                                // Ir al directorio de output
+                                'cd /asset-output',
+                                // Instalar TypeScript
+                                'npm install -g typescript @types/node',
+                                // Instalar dependencias
+                                'npm install --save @aws-sdk/client-ses',
+                                // Compilar TypeScript
+                                'tsc',
+                                // Debug: ver qué se compiló
+                                'echo "=== Checking compiled files ==="',
+                                'ls -la',
+                                'echo "=== Checking dist directory ==="',
+                                'ls -la dist/',
+                                'echo "=== Content of dist/index.js ==="',
+                                'head -20 dist/index.js',
+                            ].join(' && '),
+                        ],
+                    },
+                }
+            ),
             memorySize: 256,
             timeout: cdk.Duration.seconds(60),
             environment: {
