@@ -61,7 +61,7 @@ export function NavigationButtons({
                 )}
             </div>
 
-            <p className="text-center mt-6 text-sm sm:text-sm text-olive-300 leading-relaxed px-2">
+            <p className="text-center mt-6 text-sm sm:text-sm text-olive-400 leading-relaxed px-2">
                 This is an in-home treatment. If you are not located in one of our service areas, travel will be
                 required.
             </p>

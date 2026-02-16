@@ -7,7 +7,7 @@ export const inputClasses = {
         "font-semibold",
         "text-olive-700",
         "placeholder:font-thin",
-        "placeholder:text-gray-300",
+        "placeholder:text-gray-400",
 
     ].join(" "),
     inputWrapper: [

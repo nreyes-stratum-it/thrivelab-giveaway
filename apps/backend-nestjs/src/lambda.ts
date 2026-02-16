@@ -4,6 +4,9 @@ import {APIGatewayProxyEvent, APIGatewayProxyResult, Context} from 'aws-lambda';
 import serverlessExpress from '@codegenie/serverless-express';
 import express from 'express';
 import {AppModule} from './app.module';
+import {ValidationPipe} from '@nestjs/common';
+import {HttpExceptionFilter} from "./shared/filters/http-exception.filter";
+import {ValidationExceptionFilter} from "./shared/filters/validation-exception.filter";
 
 let cachedServer: any;
 
@@ -18,6 +21,7 @@ async function bootstrapForLambda() {
                 logger: ['error', 'warn', 'log'],
             },
         );
+        app.setGlobalPrefix('api');
 
         app.enableCors({
             origin: process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -26,7 +30,18 @@ async function bootstrapForLambda() {
             optionsSuccessStatus: 204,
         });
 
-        app.setGlobalPrefix('api');
+        app.useGlobalPipes(
+            new ValidationPipe({
+                whitelist: true,
+                forbidNonWhitelisted: true,
+                transform: true,
+            })
+        )
+
+        app.useGlobalFilters(
+            new HttpExceptionFilter(),
+            new ValidationExceptionFilter()
+        )
 
         await app.init();
 

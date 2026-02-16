@@ -3,12 +3,12 @@ import {z} from 'zod';
 export const contactInfoSchema = z.object({
     firstName: z
         .string()
-        .min(1, 'First name is required')
+        .min(2, 'First name is required')
         .max(50, 'First name is too long'),
 
     lastName: z
         .string()
-        .min(1, 'Last name is required')
+        .min(2, 'Last name is required')
         .max(50, 'Last name is too long'),
 
     instagramHandle: z

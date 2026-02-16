@@ -1,12 +1,14 @@
 "use client"
 
-import {useEffect, useState} from 'react'
+import {useEffect} from 'react'
 import {useForm} from 'react-hook-form'
 import {zodResolver} from '@hookform/resolvers/zod'
 import {CompleteFormData} from "@/features/giveaway/types"
 import {useFormStore} from "@/features/giveaway/store"
 import {completeFormSchema} from "@/features/giveaway/schemas"
-import {giveawayApiService} from "@/features/giveaway/services";
+import {useSubmitGiveaway} from "@/features/giveaway/hooks/useSubmitGiveaway";
+import {useRouter} from "next/navigation";
+import {generateSuccessToken} from "@/features/giveaway/utils";
 
 interface StepConfig {
     title: string
@@ -21,8 +23,8 @@ export const FORM_STEPS: StepConfig[] = [
 ]
 
 export function useGiveawayForm() {
-    const [isSubmitting, setIsSubmitting] = useState(false)
-
+    const router = useRouter()
+    const {submitEntry, isSubmitting, error, errorType, clearError} = useSubmitGiveaway()
     const {
         formData,
         currentStep,
@@ -80,20 +82,21 @@ export function useGiveawayForm() {
     }
 
     const onSubmit = async (data: CompleteFormData) => {
-
-        setIsSubmitting(true)
-
         try {
-            const response = await giveawayApiService.submitEntry(data)
-            console.log(response)
+            const response = await submitEntry(data)
 
+            if (!response.id) {
+                throw new Error(response.message || 'Submission failed')
+            }
             resetForm()
-            alert('Form submitted successfully!')
-        } catch (error) {
+            const token = generateSuccessToken(response.id)
+
+            sessionStorage.setItem('giveaway_success_token', token)
+            sessionStorage.setItem('giveaway_entry_id', response.id)
+
+            router.push(`/giveaway/success?token=${token}`)
+        } catch (error: any) {
             console.error('Submission error:', error)
-            alert('Error submitting form. Please try again.')
-        } finally {
-            setIsSubmitting(false)
         }
     }
 
@@ -109,5 +112,8 @@ export function useGiveawayForm() {
         goToPrev,
         onSubmit,
         isSubmitting,
+        error,
+        errorType,
+        clearError
     }
 }

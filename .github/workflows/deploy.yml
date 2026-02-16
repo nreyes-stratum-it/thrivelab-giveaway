@@ -52,7 +52,7 @@ jobs:
           pnpm run build
           
           # Verificar que se generaron los archivos
-          echo "✅ Build completed. Contents of 'out' directory:"
+          echo " Build completed. Contents of 'out' directory:"
           ls -la out/
 
       - name: Upload frontend build
@@ -107,10 +107,10 @@ jobs:
         working-directory: apps/backend-nestjs
         run: |
           if [ ! -f "dist/src/lambda.js" ]; then
-            echo "❌ Error: lambda.js not found in dist/"
+            echo " Error: lambda.js not found in dist/"
             exit 1
           fi
-          echo "✅ Lambda handler built successfully"
+          echo " Lambda handler built successfully"
 
       - name: Create Lambda deployment package
         working-directory: apps/backend-nestjs
@@ -138,11 +138,11 @@ jobs:
           # Verificar que las dependencias críticas existen
           echo "Verificando dependencias..."
           if [ ! -d "node_modules/@nestjs/core" ]; then
-            echo "❌ Error: @nestjs/core not found"
+            echo " Error: @nestjs/core not found"
             exit 1
           fi
           
-          echo "✅ Dependencies installed. Size of node_modules:"
+          echo " Dependencies installed. Size of node_modules:"
           du -sh node_modules
           
           # Crear el archivo zip
@@ -157,7 +157,7 @@ jobs:
           
           cd ..
           
-          echo "✅ Lambda package created:"
+          echo " Lambda package created:"
           ls -lh lambda.zip
           du -h lambda.zip
 
@@ -200,7 +200,7 @@ jobs:
         run: |
           mkdir -p apps/backend-nestjs
           cp backend-build/lambda.zip apps/backend-nestjs/lambda.zip
-          echo "✅ Lambda package ready for CDK"
+          echo " Lambda package ready for CDK"
 
       - name: Install CDK dependencies
         working-directory: infrastructure
@@ -264,11 +264,11 @@ jobs:
           ls -la frontend-build/
           
           if [ ! -f "frontend-build/giveaway/index.html" ]; then
-            echo "❌ Error: giveaway/index.html not found!"
+            echo " Error: giveaway/index.html not found!"
             exit 1
           fi
           
-          echo "✅ Frontend build verified"
+          echo " Frontend build verified"
 
       - name: Deploy to S3
         run: |
@@ -286,7 +286,7 @@ jobs:
             --include "*.json" \
             --cache-control "public, max-age=0, must-revalidate"
           
-          echo "✅ Files uploaded to S3"
+          echo " Files uploaded to S3"
 
       - name: Invalidate CloudFront Cache
         run: |
@@ -294,7 +294,7 @@ jobs:
             --distribution-id ${{ needs.deploy-infrastructure.outputs.distribution_id }} \
             --paths "/*"
           
-          echo "✅ CloudFront cache invalidated"
+          echo " CloudFront cache invalidated"
 
   deploy-backend:
     needs: deploy-infrastructure
@@ -333,7 +333,7 @@ jobs:
         run: |
           echo "🗄️ Running database migrations..."
           pnpm exec prisma migrate deploy
-          echo "✅ Migrations completed successfully"
+          echo " Migrations completed successfully"
 
       - name: Download backend build
         uses: actions/download-artifact@v4
@@ -348,7 +348,7 @@ jobs:
             --function-name ThriveLabGiveawayBackend \
             --zip-file fileb://./backend-build/lambda.zip
           
-          echo "✅ Lambda function updated"
+          echo " Lambda function updated"
 
       - name: Wait for Lambda update
         run: |
@@ -356,7 +356,7 @@ jobs:
           aws lambda wait function-updated \
             --function-name ThriveLabGiveawayBackend
           
-          echo "✅ Lambda function is ready"
+          echo " Lambda function is ready"
 
       - name: Publish Lambda version
         run: |
@@ -365,7 +365,7 @@ jobs:
             --query 'Version' \
             --output text)
           
-          echo "📌 Published Lambda version: $VERSION"
+          echo " Published Lambda version: $VERSION"
 
   health-check:
     needs: [ deploy-frontend, deploy-backend ]
@@ -393,7 +393,7 @@ jobs:
           
           echo "Testing frontend at: $CLOUDFRONT_URL"
           curl -f -I $CLOUDFRONT_URL || exit 1
-          echo "✅ Frontend is accessible"
+          echo " Frontend is accessible"
 
       - name: Check Backend API
         run: |
@@ -404,4 +404,4 @@ jobs:
           
           echo "Testing backend at: ${API_URL}api/health"
           curl -f ${API_URL}api/health || exit 1
-          echo "✅ Backend API is accessible"
+          echo " Backend API is accessible"

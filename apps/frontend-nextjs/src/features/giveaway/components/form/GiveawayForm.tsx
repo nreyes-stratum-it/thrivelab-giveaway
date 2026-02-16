@@ -8,6 +8,7 @@ import InterestLevelStep from './steps/InterestLevelStep'
 import {useGiveawayForm} from "@/features/giveaway/hooks";
 import {StepIndicator} from "@/features/giveaway/components/form/ui/StepIndicator";
 import {NavigationButtons} from "@/features/giveaway/components/form/ui/NavigationButtons";
+import {ErrorAlert} from "@/features/giveaway/components/ui/ErrorAlert";
 
 const STEP_COMPONENTS = [
     ContactInfoStep,
@@ -29,6 +30,9 @@ const GiveawayForm = () => {
         goToPrev,
         onSubmit,
         isSubmitting,
+        error,
+        errorType,
+        clearError
     } = useGiveawayForm()
 
     if (!methods) {
@@ -52,6 +56,14 @@ const GiveawayForm = () => {
                     Win a $10,000 in-home stem cell treatment
                 </h2>
             </div>
+
+            {error && (
+                <ErrorAlert
+                    message={error}
+                    type={errorType}
+                    onClose={clearError}
+                />
+            )}
 
             <FormProvider {...methods}>
                 <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-6">
