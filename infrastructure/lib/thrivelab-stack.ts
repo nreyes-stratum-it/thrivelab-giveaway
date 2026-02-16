@@ -135,7 +135,6 @@ export class ThriveLabStack extends cdk.Stack {
             },
 
             priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
-            geoRestriction: cloudfront.GeoRestriction.allowlist('US'),
             httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
             enabled: true,
 
