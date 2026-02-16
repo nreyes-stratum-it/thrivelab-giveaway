@@ -217,7 +217,7 @@ jobs:
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
         run: |
-          npm run deploy -- ThriveLabGiveaway \
+          npm run deploy -- ThriveLabGiveawayStack \
             --require-approval never \
             --parameters DatabaseUrl="${DATABASE_URL}" \
             --parameters AdminEmail="${ADMIN_EMAIL}" \
