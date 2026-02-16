@@ -27,6 +27,8 @@ pnpm docker:up
 
 ![Architecture Diagram](assets/architecture.png)
 
+---
+
 **Local Development**: Emails are mocked (logged to console, not sent)  
 **Production**: Real emails sent via AWS SES
 
