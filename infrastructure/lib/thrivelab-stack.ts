@@ -83,7 +83,7 @@ export class ThriveLabStack extends cdk.Stack {
         const emailNotificationLambda = new lambda.Function(this, 'EmailNotificationLambda', {
             functionName: 'ThriveLabEmailNotification',
             runtime: lambda.Runtime.NODEJS_20_X,
-            handler: 'index.handler',
+            handler: 'dist/index.handler',
             code: lambda.Code.fromAsset(path.join(__dirname, 'lambda/email-notification')),
             memorySize: 256,
             timeout: cdk.Duration.seconds(60),
