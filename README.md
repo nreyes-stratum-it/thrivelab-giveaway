@@ -1,7 +1,8 @@
 # ThriveLab Giveaway Monorepo
 
 Frontend based in features (Next 16, React 19, TailwindCSS, HeroUI) using Static Site Generation (SSG) for optimal
-performance. Backend with Drive Domain Design architecture (Nest js, Prisma, and PostgresSQL) exposing a REST API. AWS CDK defines infrastructure
+performance. Backend with Drive Domain Design architecture (Nest js, Prisma, and PostgresSQL) exposing a REST API. AWS
+CDK defines infrastructure
 with Lambda functions for email notifications, SQS for queuing, SES for sending emails, and CloudFront + S3 for hosting
 the frontend.
 
@@ -24,11 +25,7 @@ pnpm docker:up
 
 ## Architecture
 
-```
-
 ![Architecture Diagram](assets/architecture.png)
-
-```
 
 **Local Development**: Emails are mocked (logged to console, not sent)  
 **Production**: Real emails sent via AWS SES
