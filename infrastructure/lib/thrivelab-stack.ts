@@ -232,7 +232,6 @@ export class ThriveLabStack extends cdk.Stack {
                 FRONTEND_URL: `https://${distribution.distributionDomainName}`,
                 PORT: '3001',
                 NOTIFICATION_QUEUE_URL: notificationQueue.queueUrl,
-                AWS_REGION: this.region,
             },
             logGroup: new logs.LogGroup(this, 'BackendLambdaLogGroup', {
                 logGroupName: '/aws/lambda/ThriveLabGiveawayBackend',
