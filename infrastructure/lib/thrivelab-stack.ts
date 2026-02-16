@@ -87,28 +87,35 @@ export class ThriveLabStack extends cdk.Stack {
             code: lambda.Code.fromAsset(
                 path.join(__dirname, 'lambda/email-notification'),
                 {
+                    exclude: ['dist', 'node_modules', '*.log', 'cdk.out'],
+
                     bundling: {
                         image: lambda.Runtime.NODEJS_20_X.bundlingImage,
+                        user: 'root',
                         command: [
                             'bash', '-c',
                             [
-                                // Copiar todo al output
                                 'cp -r . /asset-output',
-                                // Ir al directorio de output
                                 'cd /asset-output',
-                                // Instalar TypeScript
-                                'npm install -g typescript @types/node',
-                                // Instalar dependencias
-                                'npm install --save @aws-sdk/client-ses',
-                                // Compilar TypeScript
-                                'tsc',
-                                // Debug: ver qué se compiló
-                                'echo "=== Checking compiled files ==="',
+
+                                'export npm_config_cache=/tmp/.npm',
+                                'mkdir -p /tmp/.npm',
+
+                                'npm install typescript @types/node @aws-sdk/client-ses',
+
+                                'npx tsc',
+
+                                'echo "=== Compiled files ==="',
+                                'ls -la dist/ || echo "ERROR: dist/ not found!"',
+                                'test -f dist/index.js || exit 1',
+
+                                'rm -rf node_modules',
+
+                                'npm install --omit=dev @aws-sdk/client-ses',
+
+                                'echo "=== Final package contents ==="',
+                                'du -sh .',
                                 'ls -la',
-                                'echo "=== Checking dist directory ==="',
-                                'ls -la dist/',
-                                'echo "=== Content of dist/index.js ==="',
-                                'head -20 dist/index.js',
                             ].join(' && '),
                         ],
                     },
