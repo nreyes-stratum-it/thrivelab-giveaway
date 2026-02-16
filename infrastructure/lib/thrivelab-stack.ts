@@ -101,7 +101,7 @@ export class ThriveLabStack extends cdk.Stack {
                                 'export npm_config_cache=/tmp/.npm',
                                 'mkdir -p /tmp/.npm',
 
-                                'npm install typescript @types/node @aws-sdk/client-ses',
+                                'npm install typescript @types/node @types/aws-lambda @aws-sdk/client-ses',
 
                                 'npx tsc',
 

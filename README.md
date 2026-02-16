@@ -1,8 +1,11 @@
-# ThriveLab Giveaway 🎉
+# ThriveLab Giveaway Monorepo
 
-Event-driven giveaway platform with async email notifications.
+Frontend based in features (Next 16, React 19, TailwindCSS, HeroUI) using Static Site Generation (SSG) for optimal
+performance. Backend with Drive Domain Design architecture (Nest js, Prisma, and PostgresSQL) exposing a REST API. AWS CDK defines infrastructure
+with Lambda functions for email notifications, SQS for queuing, SES for sending emails, and CloudFront + S3 for hosting
+the frontend.
 
-## 🚀 Quick Start (One Command)
+## Quick Start (One Command)
 
 ```bash
 # Clone and run
@@ -19,7 +22,7 @@ pnpm docker:up
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 Frontend (Next.js) → Backend (NestJS) → PostgreSQL
@@ -34,7 +37,7 @@ Frontend (Next.js) → Backend (NestJS) → PostgreSQL
 
 ---
 
-## 📋 Prerequisites
+## Prerequisites
 
 - **Node.js 20+**
 - **pnpm 8+**
@@ -42,7 +45,7 @@ Frontend (Next.js) → Backend (NestJS) → PostgreSQL
 
 ---
 
-## 🐳 Docker Commands (Recommended)
+## Docker Commands (Recommended)
 
 ```bash
 # Start all services (detached mode)
@@ -76,7 +79,7 @@ pnpm docker:clean
 
 ---
 
-## 💻 Local Development (Without Docker)
+## Local Development (Without Docker)
 
 If you prefer to run without Docker:
 
@@ -136,7 +139,7 @@ pnpm dev:backend   # Just backend
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 thrivelab-giveaway/
@@ -156,81 +159,7 @@ thrivelab-giveaway/
 
 ---
 
-## 🗄️ Database Commands
-
-```bash
-# Run migrations (Docker)
-pnpm db:migrate
-
-# Deploy migrations (production-style)
-pnpm db:migrate:deploy
-
-# Open Prisma Studio (view/edit data)
-pnpm db:studio
-
-# Seed database (if seeds configured)
-pnpm db:seed
-```
-
-**Note**: `pnpm db:studio` opens at http://localhost:5555
-
----
-
-## 🏗️ Build Commands
-
-```bash
-# Build everything
-pnpm build
-
-# Build frontend only
-pnpm build:frontend
-
-# Build backend only
-pnpm build:backend
-
-# Clean all builds and dependencies
-pnpm clean
-```
-
----
-
-## ☁️ AWS Deployment Commands
-
-### Deploy Infrastructure
-
-```bash
-pnpm deploy
-```
-
-### Deploy Backend Lambda
-
-```bash
-pnpm deploy:backend
-```
-
-### Run Production Migrations
-
-```bash
-pnpm migrate:prod
-```
-
-### View Production Logs
-
-```bash
-pnpm logs:backend
-```
-
-### Invalidate CloudFront Cache
-
-```bash
-pnpm invalidate:cdn
-```
-
-For full AWS deployment guide, see [DEPLOYMENT.md](./DEPLOYMENT.md)
-
----
-
-## 📧 Email Notifications
+## Email Notifications
 
 ### Local Development
 
@@ -248,7 +177,7 @@ You'll see:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📧 EMAIL NOTIFICATION (MOCKED)
+ EMAIL NOTIFICATION (MOCKED)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {
   "eventType": "GiveawayEntryCreated",
@@ -266,29 +195,6 @@ Real emails sent via AWS SES to:
 
 ---
 
-## 🧪 Testing
-
-### Test the Application
-
-1. **Start services**:
-   ```bash
-   pnpm docker:up
-   ```
-
-2. **Access frontend**: http://localhost:3000/giveaway
-
-3. **Submit test entry** through the form
-
-4. **Check logs**:
-   ```bash
-   pnpm docker:logs:backend
-   ```
-
-5. **Verify in database**:
-   ```bash
-   pnpm db:studio
-   ```
-
 ### API Health Check
 
 ```bash
@@ -298,74 +204,7 @@ curl http://localhost:3001/api/health
 
 ---
 
-## 🔧 Troubleshooting
-
-### Services won't start
-
-```bash
-# Clean everything and rebuild
-pnpm docker:clean
-pnpm docker:rebuild
-```
-
-### Port already in use
-
-```bash
-# Stop services
-pnpm docker:down
-
-# Find and kill processes
-lsof -ti:3000 | xargs kill -9
-lsof -ti:3001 | xargs kill -9
-
-# Start again
-pnpm docker:up
-```
-
-### Backend can't connect to database
-
-```bash
-# Check PostgreSQL is running
-pnpm docker:logs:postgres
-
-# Restart PostgreSQL
-docker compose restart postgres
-
-# Or rebuild everything
-pnpm docker:rebuild
-```
-
-### Code changes not reflecting
-
-**Problem**: `pnpm docker:up` doesn't rebuild images
-
-**Solution**: Use rebuild command
-
-```bash
-pnpm docker:rebuild
-```
-
-Or build explicitly:
-
-```bash
-pnpm docker:build
-pnpm docker:up
-```
-
-### Database is outdated
-
-```bash
-# Run migrations
-pnpm db:migrate
-
-# Or reset everything
-pnpm docker:clean  # ⚠️ Deletes all data!
-pnpm docker:up
-```
-
----
-
-## 🎨 Tech Stack
+## Tech Stack
 
 - **Frontend**: Next.js 16, React 19, TailwindCSS, HeroUI
 - **Backend**: NestJS, Prisma, PostgreSQL
@@ -375,7 +214,7 @@ pnpm docker:up
 
 ---
 
-## 📝 Available Commands Reference
+## Available Commands Reference
 
 ### Development
 
@@ -443,11 +282,10 @@ pnpm invalidate:cdn     # Clear CloudFront cache
 
 ---
 
-## 🌐 Access URLs
+## Access URLs
 
 | Service           | URL                              | Description                                 |
 |-------------------|----------------------------------|---------------------------------------------|
-| **Frontend**      | http://localhost:3000            | Main application                            |
 | **Giveaway Page** | http://localhost:3000/giveaway   | Giveaway form                               |
 | **Backend API**   | http://localhost:3001/api        | REST API                                    |
 | **Health Check**  | http://localhost:3001/api/health | API health status                           |
@@ -456,4 +294,4 @@ pnpm invalidate:cdn     # Clear CloudFront cache
 
 ---
 
-**Made with ❤️ by ThriveLab Team**
+**Made with ❤️ by Nelson Reyes**
