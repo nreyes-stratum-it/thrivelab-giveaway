@@ -25,7 +25,9 @@ pnpm docker:up
 ## Architecture
 
 ```
-[Architecture Diagram](assets/architecture.png)
+
+![Architecture Diagram](assets/architecture.png)
+
 ```
 
 **Local Development**: Emails are mocked (logged to console, not sent)  
